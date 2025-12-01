@@ -1,0 +1,131 @@
+---
+title: "Análisis de Diagnóstico de ASD con Regresión Logística"
+format: html
+editor: visual
+---
+
+# Introducción:
+
+-   El presente trabajo tiene como objetivo analizar un conjunto de datos relacionados con el **trastorno del espectro autista (ASD, por sus siglas en inglés)** utilizando herramientas estadísticas en R. A través del uso de la **regresión logística**, se busca identificar variables que puedan influir en el diagnóstico de esta condición.\
+
+    El análisis se desarrolla paso a paso, desde la preparación del entorno de trabajo y la limpieza de datos, hasta la construcción del modelo, su validación y la interpretación de los resultados.\
+
+    Este enfoque no solo permite aplicar métodos estadísticos, sino también **comprender el proceso completo de análisis de datos clínicos**, un aspecto fundamental en la investigación biomédica y en la toma de decisiones basadas en evidencia.
+
+## 1. Instalación y Carga de Paquetes
+
+-   En este primer apartado se establecen las herramientas necesarias para realizar el análisis. La instalación y carga de paquetes garantiza que R cuente con las funciones adecuadas para la lectura, manipulación y visualización de datos, así como para el ajuste del modelo de regresión logística. Cada paquete cumple una función específica: **readr** facilita la importación de datos, **dplyr** permite su manipulación eficiente, **pROC** ayuda a evaluar el rendimiento del modelo mediante curvas ROC, y **ggplot2** ofrece herramientas visuales potentes para graficar resultados.
+
+-   **Paquetes utilizados:** readr (lectura de CSV), dplyr (manipulación de datos), pROC (curva ROC), ggplot2 (gráficos).
+
+```{r}
+# Instalar paquetes necesarios (si no están instalados)
+if (!require(readr)) install.packages("readr")
+if (!require(dplyr)) install.packages("dplyr")
+if (!require(pROC)) install.packages("pROC")
+if (!require(ggplot2)) install.packages("ggplot2")
+
+# Cargar paquetes
+library(readr)
+library(dplyr)
+library(pROC)
+library(ggplot2)
+```
+
+## 2. Carga y Preparación de los Datos
+
+En esta sección se importan los datos desde el archivo `autismo.csv` y se preparan para el análisis.\
+Este paso es esencial porque los datos suelen contener valores perdidos, errores o formatos inadecuados que pueden alterar los resultados. Por ello, se realiza una limpieza de variables —como reemplazar valores inválidos en la edad— y se transforman variables categóricas en factores para que el modelo las interprete correctamente. Finalmente, se explora la distribución de la edad mediante un histograma, lo que permite tener una primera impresión del comportamiento de los datos.
+
+-   **Paquetes utilizados:** readr (para read_csv), dplyr (para filter).
+
+-   **Gráfico:** Un histograma de la distribución de la edad para visualizar la variable numérica clave después de la limpieza.
+
+```{r}
+# Cargar los datos
+datos <- read_csv("C:\\Users\\TUUSUARIO\\Desktop\\DATA\\autismo.csv")
+
+# Limpiar y preparar los datos
+# Reemplazar el signo de interrogación por NA en Edad y convertir a numérico
+datos$Edad <- as.numeric(gsub("\\?", NA, datos$Edad))
+
+# Eliminar filas con NA en Edad
+datos <- datos %>% filter(!is.na(Edad))
+
+# Convertir variables categóricas a factores
+datos$Genero <- as.factor(datos$Genero)
+datos$Etnicidad <- as.factor(datos$Etnicidad)
+datos$Ictericia_al_nacer <- as.factor(datos$Ictericia_al_nacer)
+datos$Diagnostico_autismo <- as.factor(datos$Diagnostico_autismo)
+datos$Pais_residencia <- as.factor(datos$Pais_residencia)
+datos$Uso_prev_aplicacion <- as.factor(datos$Uso_prev_aplicacion)
+datos$Quien_completa_prueba <- as.factor(datos$Quien_completa_prueba)
+datos$Diagnostico_ASD <- as.factor(datos$Diagnostico_ASD)
+
+# Gráfico: Histograma de la Edad
+ggplot(datos, aes(x = Edad)) +
+  geom_histogram(binwidth = 5, fill = "skyblue", color = "black") +
+  labs(title = "Distribución de la Edad", x = "Edad", y = "Frecuencia")
+
+```
+
+## 3. Ajuste del Modelo de Regresión Logística
+
+En esta sección se construye el modelo principal del análisis: la **regresión logística binaria**. El objetivo es determinar cómo influyen las puntuaciones obtenidas en las preguntas del test (P1–P10) y la edad en la probabilidad de recibir un diagnóstico de ASD. La regresión logística es especialmente útil en este tipo de estudios porque permite estimar la **razón de momios (odds ratio)**, que muestra el grado de asociación entre cada variable y el diagnóstico. Además, se presenta un **gráfico de barras con los odds ratios**, lo que facilita visualizar qué predictores tienen mayor impacto en el modelo. Este paso es crucial para identificar los factores que podrían estar relacionados con la presencia del trastorno.
+
+-   En esta sección, ajustaremos un modelo de regresión logística para predecir el diagnóstico de ASD usando las puntuaciones de las preguntas (P1-P10) y la edad como predictores. También calcularemos los odds ratios.
+
+-   **Paquetes utilizados:** Base R (para glm), no se requieren paquetes adicionales aquí.
+
+-   **Gráfico:** Un gráfico de barras de los odds ratios para visualizar la influencia de cada predictor.
+
+```{r}
+# Ajustar el modelo de regresión logística
+modelo <- glm(Diagnostico_ASD ~ Puntuacion_P1 + Puntuacion_P2 + Puntuacion_P3 + Puntuacion_P4 + Puntuacion_P5 + 
+              Puntuacion_P6 + Puntuacion_P7 + Puntuacion_P8 + Puntuacion_P9 + Puntuacion_P10 + Edad, 
+              family = binomial(link = "logit"), data = datos)
+
+# Resumen del modelo
+summary(modelo)
+
+# Calcular los odds ratios
+odds_ratios <- exp(coef(modelo))
+
+# Gráfico: Barras de los odds ratios
+odds_df <- data.frame(Predictor = names(odds_ratios), Odds_Ratio = odds_ratios)
+ggplot(odds_df[-1, ], aes(x = Predictor, y = Odds_Ratio)) + # Excluir intercepto
+  geom_bar(stat = "identity", fill = "salmon") +
+  labs(title = "Odds Ratios de los Predictores", x = "Predictor", y = "Odds Ratio") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+## 4. Evaluación del Modelo
+
+Después de ajustar el modelo, es importante evaluar su rendimiento. En esta parte se utiliza la **curva ROC (Receiver Operating Characteristic)** y el cálculo del **AUC (Área Bajo la Curva)** para determinar la capacidad del modelo de distinguir entre individuos con y sin diagnóstico de ASD.\
+Una curva ROC cercana al vértice superior izquierdo y un AUC alto indican que el modelo tiene un buen poder predictivo. Además, se genera un gráfico que representa visualmente la sensibilidad y especificidad del modelo, lo que permite valorar su utilidad práctica en contextos clínicos o de cribado temprano.
+
+-   Aquí evaluaremos el modelo calculando la curva ROC y el AUC, que miden su capacidad predictiva.
+
+-   **Paquetes utilizados:** pROC (para roc y auc), ggplot2 (para el gráfico).
+
+-   **Gráfico:** Una curva ROC para visualizar el rendimiento del modelo.
+
+```{r}
+# Predicciones del modelo
+predicciones <- predict(modelo, type = "response")
+
+# Generar la curva ROC
+roc_obj <- roc(datos$Diagnostico_ASD, predicciones)
+
+# Calcular el AUC
+auc(roc_obj)
+
+# Gráfico: Curva ROC
+ggroc(roc_obj, color = "blue") +
+  labs(title = "Curva ROC del Modelo de Regresión Logística", x = "1 - Especificidad", y = "Sensibilidad") +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray")
+```
+
+# Conclusión
+
+El análisis muestra que las puntuaciones de las preguntas (Puntuacion_P1 a Puntuacion_P10) y la edad son predictores clave para el diagnóstico de ASD. El modelo de regresión logística estima la probabilidad de un diagnóstico positivo basado en estas variables. Los odds ratios, visualizados en el gráfico anterior, indican la fuerza de la asociación entre cada predictor y el diagnóstico. La curva ROC y el AUC reflejan un rendimiento predictivo adecuado, donde un AUC cercano a 1 sugiere buena capacidad discriminativa. Este modelo puede ser útil para identificar factores de riesgo de ASD, aunque podría mejorarse con más variables o criterios clínicos adicionales.
